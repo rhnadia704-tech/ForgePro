@@ -1,0 +1,6 @@
+{
+  "name": "ROM Forge",
+  "description": "Universal Dependency-Graph GSI & Custom ROM Porter with Zero-Omission /sdcard/PORTER/EXTRACT Source Extractor, FOD/UDFPS Mechanism Solver, Trust-Chain APK/XML Signer, OAT/VDEX/fsv_meta Regenerator, and Gemini 3.1 Pro High-Thinking Orchestration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

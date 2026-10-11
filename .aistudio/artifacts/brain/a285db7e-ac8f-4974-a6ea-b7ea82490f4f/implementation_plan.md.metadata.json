@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan d'architecture révisé pour ROM Forge Studio intégrant : (1) Extraction Zéro-Oubli par Fermeture Transitive absolue dans /sdcard/PORTER/EXTRACT, (2) Moteur de Chaîne de Confiance & Re-Signature Intelligente (APK v1/v2/v3/v4, sharedUserId, alignement 4K resources.arsc/lib, XML mac_permissions.xml / keys.conf / privapp-permissions), (3) Régénérateur d'Artéfacts DEX/ART & Métadonnées FS (.oat, .odex, .vdex, .art, boot.art, fsv_meta, fs-verity, avb_footer, vbmeta) et (4) Orchestration IA par Graphe de Dépendances (Gemini 3.1 Pro High Thinking) éliminant tout risque de bootloop ou SystemServer crash.",
+  "updatedAt":  "2026-10-11T14:35:02.998248515Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
