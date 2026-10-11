@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">ROM Forge</string>
+    <string name="dashboard_tab">Dashboard</string>
     <string name="workbench_tab">Workbench</string>
     <string name="dag_extract_tab">PORTER/EXTRACT</string>
     <string name="trust_art_tab">Trust &amp; OAT</string>

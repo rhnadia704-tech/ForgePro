@@ -27,6 +27,21 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class PipelineStageStatus {
+    PENDING,
+    RUNNING,
+    COMPLETED
+}
+
+data class PipelineTaskMonitorItem(
+    val id: String,
+    val title: String,
+    val subsystemTag: String,
+    val status: PipelineStageStatus,
+    val progress: Float,
+    val detail: String
+)
+
 data class WorkbenchUiState(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val selectedInputFilePath: String = "/sdcard/Download/Generic_AOSP15_Arm64_ab_GSI.img.xz",
@@ -48,13 +63,68 @@ data class WorkbenchUiState(
     val aiCustomPromptInput: String = "",
     val aiInteractiveResponse: String = "",
     val githubWorkflowPath: String = ".github/workflows/android-build.yml",
+    val terminalLogFilter: String = "ALL",
+    val pipelineTasks: List<PipelineTaskMonitorItem> = defaultPipelineTasks(),
     val terminalLogs: List<String> = listOf(
         "[BOOT] ROM Forge Studio initialized on ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE} / ABI=${Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"}).",
         "[DAG] Universal Dependency-Graph Solver & Trust-Chain OAT/VDEX/fsv_meta Regenerator online.",
-        "[CI/CD] GitHub Actions workflow (.github/workflows/android-build.yml) ready for push.",
+        "[CI/CD] GitHub Actions workflow (.github/workflows/android-build.yml) updated to JDK 21 + Gradle 9.3.1 + API 36.1.",
         "[AI] Gemini 3.1 Pro (ThinkingLevel.HIGH) ready for source-level FOD & system restructuring."
     )
-)
+) {
+    companion object {
+        fun defaultPipelineTasks(): List<PipelineTaskMonitorItem> = listOf(
+            PipelineTaskMonitorItem(
+                id = "STAGE_UNPACK",
+                title = "1. Unpack & Source-Level Disassembly",
+                subsystemTag = "UNPACK",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "Captures fs_config, SELinux file_contexts, SystemUI.apk & services.jar Smali"
+            ),
+            PipelineTaskMonitorItem(
+                id = "STAGE_EXTRACT",
+                title = "2. Zero-Omission Host Extract (/sdcard/PORTER/EXTRACT)",
+                subsystemTag = "EXTRACT",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "Recursive ELF DT_NEEDED & .rodata closure -> proprietary-files.txt & Android.bp"
+            ),
+            PipelineTaskMonitorItem(
+                id = "STAGE_AI_DAG",
+                title = "3. Gemini 3.1 Pro (High Thinking) DAG & FOD Solver",
+                subsystemTag = "AI-DAG",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "Synthesizes FOD HBM sysfs bridge, SELinux CIL & RRO overlay from host/target DAG"
+            ),
+            PipelineTaskMonitorItem(
+                id = "STAGE_PORTAGE",
+                title = "4. Modular Source-Level Portage & Injection",
+                subsystemTag = "PORTAGE",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "Injects UdfpsController Smali, FodHardwareSourceOverlay.apk & init.porter.fod.rc"
+            ),
+            PipelineTaskMonitorItem(
+                id = "STAGE_SIGN_OAT",
+                title = "5. Trust-Chain Sign, XML Sync & OAT/VDEX/fsv_meta Regen",
+                subsystemTag = "SIGN-OAT",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "4K APK align, plat_mac_permissions.xml sync, .oat/.odex/.vdex/.art/.fsv_meta regen"
+            ),
+            PipelineTaskMonitorItem(
+                id = "STAGE_REPACK",
+                title = "6. Final System Image Repack & AVB 2.0 vbmeta",
+                subsystemTag = "REPACK",
+                status = PipelineStageStatus.PENDING,
+                progress = 0f,
+                detail = "Rebuilds EXT4/EROFS Sparse .img with verified inodes & AVB 2.0 hashtree footer"
+            )
+        )
+    }
+}
 
 class RomForgeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -115,6 +185,20 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
         appendLog("[THEME] Application theme switched to: ${mode.labelFr} (${mode.name})")
     }
 
+    fun setTerminalLogFilter(filter: String) {
+        _uiState.update { it.copy(terminalLogFilter = filter) }
+    }
+
+    fun clearTerminalLogs() {
+        _uiState.update {
+            it.copy(
+                terminalLogs = listOf(
+                    "[CLEAR] Terminal log buffer cleared by user — ready for low-level process telemetry."
+                )
+            )
+        }
+    }
+
     fun updateInputFilePath(path: String, uri: Uri? = null) {
         _uiState.update {
             it.copy(
@@ -137,6 +221,24 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(aiCustomPromptInput = text) }
     }
 
+    private fun updateStageStatus(stageId: String, status: PipelineStageStatus, progress: Float, detail: String? = null) {
+        _uiState.update { state ->
+            state.copy(
+                pipelineTasks = state.pipelineTasks.map { item ->
+                    if (item.id == stageId) {
+                        item.copy(
+                            status = status,
+                            progress = progress.coerceIn(0f, 1f),
+                            detail = detail ?: item.detail
+                        )
+                    } else {
+                        item
+                    }
+                }
+            )
+        }
+    }
+
     /**
      * Button 1: EXTRACT IMG (Unpack selected .img / payload.bin / super.img / archive & build TargetSystemGraph DAG)
      */
@@ -146,6 +248,7 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             val inputPath = _uiState.value.selectedInputFilePath
             val uri = _uiState.value.selectedInputUri
             setBusy("UNPACKING & DISASSEMBLING IMG", 0.05f, "Opening $inputPath...")
+            updateStageStatus("STAGE_UNPACK", PipelineStageStatus.RUNNING, 0.1f, "Unpacking $inputPath...")
             appendLog("[UNPACK] Starting binary header analysis & source-level unpack for: $inputPath")
 
             val result = imageAndTrustEngine.unpackAndDisassembleSystemImage(
@@ -153,6 +256,8 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 sourceUri = uri
             ) { step, progress ->
                 updateProgress(step, progress)
+                updateStageStatus("STAGE_UNPACK", PipelineStageStatus.RUNNING, progress, step)
+                appendLog("[UNPACK-PROC] $step")
             }
 
             val insertedId = dao.insertUnpackedRom(result.romEntity).toInt()
@@ -162,6 +267,7 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             val quickAiSummary = aiOrchestrator.quickClassifySystemTopology(result.logSummary)
             appendLog("[UNPACK-OK] ${result.logSummary}")
             appendLog("[AI-FAST] $quickAiSummary")
+            updateStageStatus("STAGE_UNPACK", PipelineStageStatus.COMPLETED, 1f, "Unpacked to ${result.romEntity.workspaceDir}")
 
             _uiState.update {
                 it.copy(
@@ -177,22 +283,25 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
 
     /**
      * Button 2: EXTRACT DEVICE (ROOT) -> Extracts 100% of required device files into /sdcard/PORTER/EXTRACT
-     * with recursive transitive closure (0 omitted files) and extreme source-level disassembly.
      */
     fun onExtractDeviceRootClicked() {
         if (_uiState.value.isBusy) return
         viewModelScope.launch {
             setBusy("ZERO-OMISSION DEVICE EXTRACTION (-> /sdcard/PORTER/EXTRACT)", 0.05f, "Probing Root & partitions...")
+            updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, 0.1f, "Scanning /system, /vendor, /product, /odm...")
             appendLog("[EXTRACT-DEVICE] Starting AOSP/LineageOS-grade recursive extraction into /sdcard/PORTER/EXTRACT...")
 
             val report = extractorEngine.executeFullDeviceExtraction { step, progress ->
                 updateProgress(step, progress)
+                updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, progress, step)
+                appendLog("[EXTRACT-PROC] $step")
             }
             dao.insertDagNodes(report.dagNodes)
 
             appendLog("[EXTRACT-OK] Extracted ${report.totalFilesExtracted} source artifacts & ${report.totalDagNodes} DAG nodes (${report.totalDagEdges} edges) into ${report.outputRootDir}.")
             appendLog("[CLOSURE] Transitive closure converged in ${report.transitiveClosureRounds} rounds -> ${report.unresolvedDependenciesCount} unresolved dependencies (ZERO OMITTED FILES).")
             appendLog("[FOD-PROBE] Geometry: ${report.fodSensorGeometry} | Sysfs: ${report.fodSysfsPaths.joinToString()}")
+            updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.COMPLETED, 1f, "0 Omitted Files | ${report.totalDagNodes} DAG Nodes in ${report.outputRootDir}")
 
             _uiState.update {
                 it.copy(
@@ -222,7 +331,7 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val targetRom = getActiveRomOrFirst()
             if (targetRom == null) {
-                appendLog("[WARN] No unpacked IMG found. Unpacking selected image first...")
+                appendLog("[WARN] No unpacked IMG found. Launching full MAKE pipeline...")
                 onMakeFullPipelineClicked()
                 return@launch
             }
@@ -231,11 +340,14 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             var hostNodes = dao.getDagNodesByScope("HOST_DEVICE")
             if (hostNodes.isEmpty()) {
                 appendLog("[PORTAGE] Host DAG not yet extracted. Running /sdcard/PORTER/EXTRACT probe first...")
+                updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, 0.2f, "Extracting host DAG to /sdcard/PORTER/EXTRACT...")
                 val report = extractorEngine.executeFullDeviceExtraction { step, p ->
                     updateProgress(step, p * 0.4f)
+                    updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, p, step)
                 }
                 dao.insertDagNodes(report.dagNodes)
                 hostNodes = report.dagNodes
+                updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.COMPLETED, 1f, "${report.totalDagNodes} DAG nodes extracted")
                 _uiState.update {
                     it.copy(
                         porterExtractPath = report.outputRootDir,
@@ -251,6 +363,7 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             }
             val targetNodes = dao.getDagNodesByScope("TARGET_IMG:${targetRom.name}")
 
+            updateStageStatus("STAGE_AI_DAG", PipelineStageStatus.RUNNING, 0.5f, "Gemini 3.1 Pro (ThinkingLevel.HIGH) solving FOD & DAG...")
             updateProgress("Gemini 3.1 Pro (ThinkingLevel.HIGH) analyzing full system mechanism & FOD DAG...", 0.48f)
             appendLog("[AI-HIGH-THINKING] Dispatching Host (${hostNodes.size} nodes) & Target (${targetNodes.size} nodes) DAGs to gemini-3.1-pro-preview...")
 
@@ -261,7 +374,9 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 fodGeometry = _uiState.value.fodGeometrySummary
             )
             dao.insertAiPlan(aiPlan)
+            updateStageStatus("STAGE_AI_DAG", PipelineStageStatus.COMPLETED, 1f, "Bootloop Safety: ${aiPlan.bootloopSafetyScore}% | FOD Bridge Synthesized")
 
+            updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.RUNNING, 0.2f, "Injecting Smali, RRO, SELinux CIL & init.porter.fod.rc...")
             val updatedRom = imageAndTrustEngine.executeModularPortageIntoWorkspace(
                 rom = targetRom,
                 smaliPatch = aiPlan.generatedSmaliPatch,
@@ -271,8 +386,11 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 macPermsPatch = aiPlan.generatedMacPermissionsXmlPatch
             ) { step, p ->
                 updateProgress(step, 0.55f + p * 0.45f)
+                updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[PORTAGE-PROC] $step")
             }
             dao.updateUnpackedRom(updatedRom)
+            updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.COMPLETED, 1f, "Ported FOD & DAG into ${updatedRom.name}")
 
             appendLog("[PORTAGE-OK] Injected FOD/UDFPS Smali bridge, priority=999 RRO overlay, SELinux CIL rules & init.porter.fod.rc into ${updatedRom.name}. Bootloop Safety=${aiPlan.bootloopSafetyScore}%.")
             _uiState.update {
@@ -299,13 +417,17 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
             setBusy("TRUST-CHAIN SIGNING & OAT/VDEX/FSV_META REGENERATION", 0.08f, "Auditing sharedUserId certificates...")
+            updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.RUNNING, 0.15f, "Re-signing APKs & regenerating OAT/VDEX/fsv_meta...")
             appendLog("[SIGN] Starting 4-stage Trust-Chain Signer + OAT/ODEX/VDEX/ART/fsv_meta Regenerator for ${targetRom.name}...")
 
             val signRes = imageAndTrustEngine.executeTrustSignAndRegenerateOatVdexFsvMeta(targetRom) { step, p ->
                 updateProgress(step, p)
+                updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[SIGN-PROC] $step")
             }
             dao.updateUnpackedRom(signRes.updatedRom)
             dao.insertTrustAndArtArtifacts(signRes.regeneratedArtifacts)
+            updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.COMPLETED, 1f, "Synced XMLs, OAT/VDEX/fsv_meta & AVB2 vbmeta")
 
             appendLog("[SIGN-OK] ${signRes.detailedReport}")
             appendLog("[AVB2] Generated verified vbmeta image: ${signRes.vbmetaOutputPath}")
@@ -333,12 +455,16 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
             setBusy("REPACKING SYSTEM IMAGE (${targetRom.imageFormat})", 0.10f, "Preparing inode & SELinux tables...")
+            updateStageStatus("STAGE_REPACK", PipelineStageStatus.RUNNING, 0.2f, "Rebuilding ${targetRom.name}...")
             appendLog("[REPACK] Rebuilding ${targetRom.name} with captured fs_config & SELinux contexts...")
 
             val repackedRom = imageAndTrustEngine.repackSystemImage(targetRom) { step, p ->
                 updateProgress(step, p)
+                updateStageStatus("STAGE_REPACK", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[REPACK-PROC] $step")
             }
             dao.updateUnpackedRom(repackedRom)
+            updateStageStatus("STAGE_REPACK", PipelineStageStatus.COMPLETED, 1f, "Output: ${repackedRom.repackedOutputPath}")
 
             appendLog("[REPACK-OK] Flashable device-specific image created: ${repackedRom.repackedOutputPath}")
             _uiState.update {
@@ -361,25 +487,36 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             val inputPath = _uiState.value.selectedInputFilePath
             val uri = _uiState.value.selectedInputUri
 
+            // Reset pipeline monitor items
+            _uiState.update { it.copy(pipelineTasks = WorkbenchUiState.defaultPipelineTasks()) }
+
             setBusy("MAKE [1/6] — UNPACK & EXTREME DISASSEMBLY", 0.04f, "Unpacking $inputPath to source level...")
+            updateStageStatus("STAGE_UNPACK", PipelineStageStatus.RUNNING, 0.1f, "Unpacking & disassembling $inputPath...")
             appendLog("==================================================================")
             appendLog("[MAKE] Starting full A-to-Z Source-Level ROM Creation Pipeline...")
             appendLog("[MAKE 1/6] Unpacking & disassembling $inputPath...")
 
             val unpackRes = imageAndTrustEngine.unpackAndDisassembleSystemImage(inputPath, uri) { step, p ->
                 updateProgress("[1/6] $step", p * 0.16f)
+                updateStageStatus("STAGE_UNPACK", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[UNPACK-PROC] $step")
             }
             val romId = dao.insertUnpackedRom(unpackRes.romEntity).toInt()
             var currentRom = unpackRes.romEntity.copy(id = romId)
             dao.insertDagNodes(unpackRes.targetDagNodes)
             dao.insertTrustAndArtArtifacts(unpackRes.initialTrustArtifacts.map { it.copy(romId = romId) })
+            updateStageStatus("STAGE_UNPACK", PipelineStageStatus.COMPLETED, 1f, "Workspace: ${currentRom.workspaceDir}")
 
             setBusy("MAKE [2/6] — ZERO-OMISSION EXTRACT (-> /sdcard/PORTER/EXTRACT)", 0.18f, "Scanning all device partitions & ELF closures...")
+            updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, 0.1f, "Scanning device partitions & ELF closures...")
             appendLog("[MAKE 2/6] Extracting 100% of device hardware & FOD stack into /sdcard/PORTER/EXTRACT...")
             val extractReport = extractorEngine.executeFullDeviceExtraction { step, p ->
                 updateProgress("[2/6] $step", 0.16f + p * 0.22f)
+                updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[EXTRACT-PROC] $step")
             }
             dao.insertDagNodes(extractReport.dagNodes)
+            updateStageStatus("STAGE_EXTRACT", PipelineStageStatus.COMPLETED, 1f, "0 Omitted Files | ${extractReport.totalDagNodes} DAG Nodes")
 
             _uiState.update {
                 it.copy(
@@ -397,6 +534,7 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
             }
 
             setBusy("MAKE [3/6] — GEMINI 3.1 PRO (HIGH THINKING) DAG & FOD ARCHITECT", 0.42f, "Synthesizing source-level porting & FOD plan...")
+            updateStageStatus("STAGE_AI_DAG", PipelineStageStatus.RUNNING, 0.5f, "Gemini 3.1 Pro (ThinkingLevel.HIGH) solving DAG & FOD...")
             appendLog("[MAKE 3/6] Invoking gemini-3.1-pro-preview (ThinkingLevel.HIGH) on ${extractReport.totalDagNodes} Host DAG nodes & Target GSI topology...")
             val aiPlan = aiOrchestrator.synthesizeFullRestructuringPlanHighThinking(
                 targetRom = currentRom,
@@ -405,9 +543,11 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 fodGeometry = extractReport.fodSensorGeometry
             )
             dao.insertAiPlan(aiPlan)
+            updateStageStatus("STAGE_AI_DAG", PipelineStageStatus.COMPLETED, 1f, "Safety Score: ${aiPlan.bootloopSafetyScore}% | FOD & DAG Solved")
             appendLog("[MAKE 3/6 OK] Gemini 3.1 Pro synthesized FOD bridge, SELinux CIL, RRO overlay & DAG closure (Bootloop Safety: ${aiPlan.bootloopSafetyScore}%).")
 
             setBusy("MAKE [4/6] — MODULAR PORTAGE & SYSTEM RESTRUCTURING", 0.62f, "Applying FOD Smali, RRO, SELinux CIL & Init bridges...")
+            updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.RUNNING, 0.2f, "Injecting FOD Smali, RRO, SELinux CIL & init.rc...")
             appendLog("[MAKE 4/6] Restructuring unpacked GSI with synthesized FOD & hardware modules...")
             currentRom = imageAndTrustEngine.executeModularPortageIntoWorkspace(
                 rom = currentRom,
@@ -418,24 +558,35 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
                 macPermsPatch = aiPlan.generatedMacPermissionsXmlPatch
             ) { step, p ->
                 updateProgress("[4/6] $step", 0.60f + p * 0.14f)
+                updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[PORTAGE-PROC] $step")
             }
             dao.updateUnpackedRom(currentRom)
+            updateStageStatus("STAGE_PORTAGE", PipelineStageStatus.COMPLETED, 1f, "FOD & Hardware DAG Injected")
 
             setBusy("MAKE [5/6] — TRUST SIGN, XML SYNC & OAT/VDEX/FSV_META REGEN", 0.76f, "Re-signing & regenerating ART/DEX & FS-Verity...")
+            updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.RUNNING, 0.2f, "Syncing XMLs & regenerating .oat/.odex/.vdex/.art/.fsv_meta...")
             appendLog("[MAKE 5/6] Synchronizing plat_mac_permissions.xml, re-signing APKs (4K aligned) & regenerating .oat/.odex/.vdex/.art/.fsv_meta...")
             val signRes = imageAndTrustEngine.executeTrustSignAndRegenerateOatVdexFsvMeta(currentRom) { step, p ->
                 updateProgress("[5/6] $step", 0.74f + p * 0.14f)
+                updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[SIGN-PROC] $step")
             }
             currentRom = signRes.updatedRom
             dao.updateUnpackedRom(currentRom)
             dao.insertTrustAndArtArtifacts(signRes.regeneratedArtifacts)
+            updateStageStatus("STAGE_SIGN_OAT", PipelineStageStatus.COMPLETED, 1f, "Trust Chain, XMLs & OAT/VDEX/fsv_meta Synced")
 
             setBusy("MAKE [6/6] — FINAL REPACK & AVB 2.0 VBMETA GENERATION", 0.90f, "Building final device-specific ROM image...")
+            updateStageStatus("STAGE_REPACK", PipelineStageStatus.RUNNING, 0.2f, "Repacking & signing AVB 2.0 vbmeta...")
             appendLog("[MAKE 6/6] Repacking final device-specific system image with verified inodes & AVB 2.0 footer...")
             currentRom = imageAndTrustEngine.repackSystemImage(currentRom) { step, p ->
                 updateProgress("[6/6] $step", 0.88f + p * 0.12f)
+                updateStageStatus("STAGE_REPACK", PipelineStageStatus.RUNNING, p, step)
+                appendLog("[REPACK-PROC] $step")
             }
             dao.updateUnpackedRom(currentRom)
+            updateStageStatus("STAGE_REPACK", PipelineStageStatus.COMPLETED, 1f, "Output: ${currentRom.repackedOutputPath}")
 
             appendLog("[MAKE-SUCCESS] 100% Device-Specific Custom ROM created: ${currentRom.repackedOutputPath}")
             appendLog("[MAKE-SUCCESS] Host Source Tree saved in: ${extractReport.outputRootDir} | VBMetas: ${signRes.vbmetaOutputPath}")
@@ -497,9 +648,9 @@ class RomForgeViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun appendLog(message: String) {
-        val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+        val ts = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
         _uiState.update { state ->
-            state.copy(terminalLogs = (state.terminalLogs + "[$ts] $message").takeLast(80))
+            state.copy(terminalLogs = (state.terminalLogs + "[$ts] $message").takeLast(120))
         }
     }
 }

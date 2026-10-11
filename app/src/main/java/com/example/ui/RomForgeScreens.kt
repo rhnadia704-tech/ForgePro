@@ -37,20 +37,25 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Pending
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.Button
@@ -104,6 +109,8 @@ import com.example.data.TrustAndArtArtifactEntity
 import com.example.data.UnpackedRomEntity
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.JetBrainsMonoFamily
+import com.example.viewmodel.PipelineStageStatus
+import com.example.viewmodel.PipelineTaskMonitorItem
 import com.example.viewmodel.RomForgeViewModel
 import com.example.viewmodel.WorkbenchUiState
 
@@ -148,7 +155,19 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     onClick = { selectedTab = 0 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 0) Icons.Filled.Build else Icons.Outlined.Build,
+                            imageVector = if (selectedTab == 0) Icons.Filled.Dashboard else Icons.Outlined.Dashboard,
+                            contentDescription = stringResource(R.string.dashboard_tab)
+                        )
+                    },
+                    label = { Text(stringResource(R.string.dashboard_tab)) },
+                    modifier = Modifier.testTag("nav_tab_dashboard")
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = {
+                        Icon(
+                            imageVector = if (selectedTab == 1) Icons.Filled.Build else Icons.Outlined.Build,
                             contentDescription = stringResource(R.string.workbench_tab)
                         )
                     },
@@ -156,11 +175,11 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     modifier = Modifier.testTag("nav_tab_workbench")
                 )
                 NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 1) Icons.Filled.AccountTree else Icons.Outlined.AccountTree,
+                            imageVector = if (selectedTab == 2) Icons.Filled.AccountTree else Icons.Outlined.AccountTree,
                             contentDescription = stringResource(R.string.dag_extract_tab)
                         )
                     },
@@ -168,11 +187,11 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     modifier = Modifier.testTag("nav_tab_dag")
                 )
                 NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 2) Icons.Filled.VerifiedUser else Icons.Outlined.VerifiedUser,
+                            imageVector = if (selectedTab == 3) Icons.Filled.VerifiedUser else Icons.Outlined.VerifiedUser,
                             contentDescription = stringResource(R.string.trust_art_tab)
                         )
                     },
@@ -180,11 +199,11 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     modifier = Modifier.testTag("nav_tab_trust")
                 )
                 NavigationBarItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 3) Icons.Filled.Settings else Icons.Outlined.Settings,
+                            imageVector = if (selectedTab == 4) Icons.Filled.Settings else Icons.Outlined.Settings,
                             contentDescription = stringResource(R.string.settings_tab)
                         )
                     },
@@ -202,7 +221,22 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
             contentAlignment = Alignment.TopCenter
         ) {
             when (selectedTab) {
-                0 -> WorkbenchAndMakeScreen(
+                0 -> CentralizedDashboardScreen(
+                    uiState = uiState,
+                    unpackedRoms = unpackedRoms,
+                    dagNodesCount = dagNodes.size,
+                    trustArtifactsCount = trustArtifacts.size,
+                    onMakeClick = viewModel::onMakeFullPipelineClicked,
+                    onExtractImgClick = viewModel::onExtractImgClicked,
+                    onExtractDeviceClick = viewModel::onExtractDeviceRootClicked,
+                    onPortageClick = viewModel::onPortageClicked,
+                    onSignClick = viewModel::onSignClicked,
+                    onRepackClick = viewModel::onRepackClicked,
+                    onFilterChange = viewModel::setTerminalLogFilter,
+                    onClearLogs = viewModel::clearTerminalLogs,
+                    onOpenWorkbench = { selectedTab = 1 }
+                )
+                1 -> WorkbenchAndMakeScreen(
                     uiState = uiState,
                     unpackedRoms = unpackedRoms,
                     onInputPathChange = { viewModel.updateInputFilePath(it, null) },
@@ -215,12 +249,12 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     onRepackClick = viewModel::onRepackClicked,
                     onMakeClick = viewModel::onMakeFullPipelineClicked
                 )
-                1 -> PorterExtractAndDagScreen(
+                2 -> PorterExtractAndDagScreen(
                     uiState = uiState,
                     dagNodes = dagNodes,
                     onExtractDeviceRootClick = viewModel::onExtractDeviceRootClicked
                 )
-                2 -> TrustArtAndAiLabScreen(
+                3 -> TrustArtAndAiLabScreen(
                     uiState = uiState,
                     trustArtifacts = trustArtifacts,
                     aiPlans = aiPlans,
@@ -228,11 +262,429 @@ fun RomForgeApp(viewModel: RomForgeViewModel) {
                     onAskAiClick = viewModel::onAskAiArchitectClicked,
                     onSignRegenClick = viewModel::onSignClicked
                 )
-                3 -> SettingsAndCicdScreen(
+                4 -> SettingsAndCicdScreen(
                     uiState = uiState,
                     onThemeSelected = viewModel::setThemeMode
                 )
             }
+        }
+    }
+}
+
+/**
+ * Centralized Dashboard Screen to monitor the status of ROM extraction and porting tasks,
+ * including a real-time terminal log viewer for low-level process feedback.
+ */
+@Composable
+fun CentralizedDashboardScreen(
+    uiState: WorkbenchUiState,
+    unpackedRoms: List<UnpackedRomEntity>,
+    dagNodesCount: Int,
+    trustArtifactsCount: Int,
+    onMakeClick: () -> Unit,
+    onExtractImgClick: () -> Unit,
+    onExtractDeviceClick: () -> Unit,
+    onPortageClick: () -> Unit,
+    onSignClick: () -> Unit,
+    onRepackClick: () -> Unit,
+    onFilterChange: (String) -> Unit,
+    onClearLogs: () -> Unit,
+    onOpenWorkbench: () -> Unit
+) {
+    val cs = MaterialTheme.colorScheme
+    val logFilters = listOf("ALL", "UNPACK", "EXTRACT", "FOD", "AI", "PORTAGE", "SIGN", "REPACK")
+    val filteredLogs = remember(uiState.terminalLogs, uiState.terminalLogFilter) {
+        if (uiState.terminalLogFilter == "ALL") {
+            uiState.terminalLogs
+        } else {
+            uiState.terminalLogs.filter { it.contains(uiState.terminalLogFilter, ignoreCase = true) }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .widthIn(max = 680.dp)
+            .padding(horizontal = 16.dp)
+            .testTag("centralized_dashboard_screen"),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(6.dp))
+            HeroFoundryBanner(uiState = uiState)
+        }
+
+        // KPI Telemetry Grid (Extraction, DAG, Trust/OAT, Unpacked Workspaces)
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DashboardMetricCard(
+                    title = "PORTER/EXTRACT",
+                    value = "${uiState.hostFilesExtractedCount} files",
+                    subtitle = "0 Omitted (Closed)",
+                    accent = cs.tertiary,
+                    modifier = Modifier.weight(1f)
+                )
+                DashboardMetricCard(
+                    title = "DAG TOPOLOGY",
+                    value = "$dagNodesCount nodes",
+                    subtitle = "${uiState.hostDagEdgesCount} edges resolved",
+                    accent = cs.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                DashboardMetricCard(
+                    title = "OAT / TRUST",
+                    value = "$trustArtifactsCount synced",
+                    subtitle = "4K + fsv_meta + AVB2",
+                    accent = cs.secondary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Global Task Monitor & Quick Action Bar
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cs.surface),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, cs.primary.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                    .testTag("dashboard_task_monitor_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Memory,
+                                contentDescription = "Task Monitor",
+                                tint = cs.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ROM EXTRACTION & PORTING TASK MONITOR",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = cs.onSurface
+                            )
+                        }
+                        Text(
+                            text = "${(uiState.progressFraction * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = cs.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = uiState.activeOperationTitle,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (uiState.isBusy) cs.primary else cs.secondary
+                    )
+                    Text(
+                        text = uiState.currentStepDetail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { uiState.progressFraction },
+                        color = cs.primary,
+                        trackColor = cs.outline,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(7.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 6-Stage Pipeline Task Breakdown
+                    uiState.pipelineTasks.forEach { task ->
+                        PipelineTaskRow(task = task)
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = onMakeClick,
+                            enabled = !uiState.isBusy,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = cs.primary,
+                                contentColor = cs.onPrimary
+                            ),
+                            modifier = Modifier
+                                .weight(1.4f)
+                                .height(48.dp)
+                                .testTag("dashboard_make_button")
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = "MAKE")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("MAKE A-Z", style = MaterialTheme.typography.labelLarge)
+                        }
+                        OutlinedButton(
+                            onClick = onOpenWorkbench,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_open_workbench_button")
+                        ) {
+                            Text("WORKBENCH (${unpackedRoms.size})", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = onExtractImgClick,
+                            enabled = !uiState.isBusy,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_unpack_btn")
+                        ) {
+                            Text("UNPACK", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(
+                            onClick = onExtractDeviceClick,
+                            enabled = !uiState.isBusy,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_extract_dev_btn")
+                        ) {
+                            Text("EXTRACT", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(
+                            onClick = onPortageClick,
+                            enabled = !uiState.isBusy,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_port_btn")
+                        ) {
+                            Text("PORT", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(
+                            onClick = onSignClick,
+                            enabled = !uiState.isBusy,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_sign_btn")
+                        ) {
+                            Text("SIGN/OAT", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(
+                            onClick = onRepackClick,
+                            enabled = !uiState.isBusy,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("dashboard_repack_btn")
+                        ) {
+                            Text("REPACK", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Real-Time Low-Level Terminal Log Viewer with Subsystem Filtering
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF070A0E)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, cs.outline, RoundedCornerShape(16.dp))
+                    .testTag("realtime_terminal_log_viewer")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Terminal,
+                                contentDescription = "Real-Time Terminal Log Viewer",
+                                tint = Color(0xFF00E676),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "REAL-TIME TERMINAL LOG VIEWER",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color(0xFF00E676)
+                                )
+                                Text(
+                                    text = "Low-level process feedback (ELF DT_NEEDED, SELinux CIL, FOD sysfs, OAT/VDEX, AVB2)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF9BA9BB)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = onClearLogs,
+                            modifier = Modifier.testTag("clear_terminal_logs_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteSweep,
+                                contentDescription = "Clear Terminal Logs",
+                                tint = Color(0xFF9BA9BB)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(logFilters) { filter ->
+                            val selected = uiState.terminalLogFilter == filter
+                            FilterChip(
+                                selected = selected,
+                                onClick = { onFilterChange(filter) },
+                                label = {
+                                    Text(
+                                        text = filter,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF00E5FF).copy(alpha = 0.25f),
+                                    selectedLabelColor = Color(0xFF00E5FF),
+                                    labelColor = Color(0xFF9BA9BB)
+                                ),
+                                modifier = Modifier.testTag("log_filter_chip_$filter")
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = Color(0xFF253244))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    filteredLogs.takeLast(24).forEach { line ->
+                        Text(
+                            text = line,
+                            fontFamily = JetBrainsMonoFamily,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when {
+                                line.contains("[MAKE-SUCCESS]") || line.contains("-OK]") -> Color(0xFF00E676)
+                                line.contains("[AI") || line.contains("[FOD") || line.contains("[CLOSURE]") -> Color(0xFF00E5FF)
+                                line.contains("[SIGN") || line.contains("[AVB2]") || line.contains("[WARN]") -> Color(0xFFFFB300)
+                                else -> Color(0xFFD0D9E6)
+                            },
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun DashboardMetricCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    val cs = MaterialTheme.colorScheme
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.surface),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.border(1.dp, cs.outline, RoundedCornerShape(12.dp))
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = cs.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun PipelineTaskRow(task: PipelineTaskMonitorItem) {
+    val cs = MaterialTheme.colorScheme
+    val (statusIcon, statusColor, statusLabel) = when (task.status) {
+        PipelineStageStatus.COMPLETED -> Triple(Icons.Filled.CheckCircle, cs.secondary, "DONE")
+        PipelineStageStatus.RUNNING -> Triple(Icons.Filled.Sync, cs.primary, "${(task.progress * 100).toInt()}%")
+        PipelineStageStatus.PENDING -> Triple(Icons.Filled.Pending, cs.onSurfaceVariant, "READY")
+    }
+
+    Surface(
+        color = cs.surfaceVariant.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                imageVector = statusIcon,
+                contentDescription = task.title,
+                tint = statusColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = cs.onSurface
+                )
+                Text(
+                    text = task.detail,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = statusLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = statusColor
+            )
         }
     }
 }
@@ -266,62 +718,6 @@ private fun WorkbenchAndMakeScreen(
         item {
             Spacer(modifier = Modifier.height(6.dp))
             HeroFoundryBanner(uiState = uiState)
-        }
-
-        // Live Operation Status & Progress Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, cs.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
-                    .testTag("operation_status_card")
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Memory,
-                                contentDescription = "Pipeline Status",
-                                tint = if (uiState.isBusy) cs.primary else cs.secondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = uiState.activeOperationTitle,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (uiState.isBusy) cs.primary else cs.secondary
-                            )
-                        }
-                        Text(
-                            text = "${(uiState.progressFraction * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = cs.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { uiState.progressFraction },
-                        color = cs.primary,
-                        trackColor = cs.outline,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = uiState.currentStepDetail,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = cs.onSurfaceVariant
-                    )
-                }
-            }
         }
 
         // MASTER "MAKE" BUTTON CARD (High-Thinking Source-Level Pipeline)
@@ -673,52 +1069,6 @@ private fun WorkbenchAndMakeScreen(
             }
         }
 
-        // REAL-TIME TELEMETRY & EXECUTION CONSOLE
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, cs.outline, RoundedCornerShape(14.dp))
-                    .testTag("terminal_console_card")
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Terminal,
-                            contentDescription = "Telemetry Console",
-                            tint = cs.secondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "LIVE KERNEL / DAG / OAT-VDEX / AVB TELEMETRY LOG",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = cs.secondary
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(color = cs.outline)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    uiState.terminalLogs.takeLast(12).forEach { line ->
-                        Text(
-                            text = line,
-                            fontFamily = JetBrainsMonoFamily,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = when {
-                                line.contains("[MAKE-SUCCESS]") || line.contains("-OK]") -> cs.secondary
-                                line.contains("[AI") || line.contains("[FOD") || line.contains("[THEME]") -> cs.primary
-                                line.contains("[WARN]") -> cs.tertiary
-                                else -> cs.onSurfaceVariant
-                            },
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-        }
-
         item {
             Text(
                 text = stringResource(R.string.security_prototype_notice),
@@ -747,12 +1097,12 @@ private fun HeroFoundryBanner(uiState: WorkbenchUiState) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(155.dp)
+                    .height(150.dp)
             )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(155.dp)
+                    .height(150.dp)
                     .background(
                         Brush.verticalGradient(
                             listOf(
@@ -1329,20 +1679,20 @@ private fun SettingsAndCicdScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "COMPILATION GITHUB ACTIONS PRÊTE",
+                            text = "COMPILATION GITHUB ACTIONS CORRIGÉE (AGP 9.1.1 / GRADLE 9.3.1 / JDK 21)",
                             style = MaterialTheme.typography.titleMedium,
                             color = cs.onSurface
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Le workflow CI/CD a été généré dans ${uiState.githubWorkflowPath} avec support JDK 17, Gradle 8.13, génération automatique du debug.keystore et publication de l'artéfact APK.",
+                        text = "Le workflow CI/CD (${uiState.githubWorkflowPath}) et gradle-wrapper.properties ont été alignés sur JDK 21, Gradle 9.3.1 et Android SDK API 36.1 requis par Android Gradle Plugin 9.1.1.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = cs.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Workflow: .github/workflows/android-build.yml\nTrigger: push / pull_request (main, master) & workflow_dispatch\nArtifact: ROM-Forge-Studio-debug-apk",
+                        text = "Workflow: .github/workflows/android-build.yml\nJDK: Temurin 21 | Gradle: 9.3.1 | Android SDK: 36.1\nArtifact: ROM-Forge-Studio-debug-apk",
                         fontFamily = JetBrainsMonoFamily,
                         style = MaterialTheme.typography.labelSmall,
                         color = cs.primary,
